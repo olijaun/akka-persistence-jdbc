@@ -8,6 +8,8 @@ import akka.persistence.journal.Tagged;
 import akka.persistence.journal.japi.AsyncWriteJournal;
 import akka.serialization.Serialization;
 import akka.serialization.SerializationExtension;
+import akka.serialization.Serializer;
+import akka.serialization.SerializerWithStringManifest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConversions;
@@ -15,6 +17,7 @@ import scala.collection.immutable.Seq;
 import scala.concurrent.Future;
 import scala.util.Try;
 
+import java.io.NotSerializableException;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -86,18 +89,40 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                 final Seq<PersistentRepr> persistentReprSeq = message.payload();
                 persistentReprSeq.foreach(persistentRepr -> {
 
-                    Object payload;
+                    Object payloadObject;
                     Set<String> tags;
                     if (persistentRepr.payload() instanceof Tagged) {
                         Tagged tagged = (Tagged) persistentRepr.payload();
-                        payload = tagged.payload();
+                        payloadObject = tagged.payload();
                         tags = JavaConversions.setAsJavaSet(tagged.tags());
                     } else {
-                        payload = persistentRepr.payload();
+                        payloadObject = persistentRepr.payload();
                         tags = Collections.emptySet();
                     }
 
-                    Try<byte[]> serializedPayload = serialization.serialize(payload);
+
+                    Serializer serializer;
+                    try {
+                        serializer = serialization.serializerFor(payloadObject.getClass());
+                    } catch (NotSerializableException e) {
+                        throw new IllegalStateException(e);
+                    }
+
+                    String manifest;
+                    if(serializer.includeManifest()) {
+
+                        if (serializer instanceof SerializerWithStringManifest) {
+                            SerializerWithStringManifest serializerWithStringManifest = (SerializerWithStringManifest) serializer;
+                            manifest = serializerWithStringManifest.manifest(payloadObject);
+                        } else {
+                            manifest = payloadObject.getClass().getName();
+                        }
+                    } else {
+                        // TODO: let's see what we do here...
+                        manifest = payloadObject.getClass().getName();
+                    }
+
+                    Try<byte[]> serializedPayload = serialization.serialize(payloadObject);
 
                     if (serializedPayload.isFailure()) {
                         throw new IllegalArgumentException("serialization failed: " + serializedPayload.failed().get());
@@ -106,13 +131,6 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                     String sender = null;
                     if (persistentRepr.sender() != null) {
                         sender = persistentRepr.sender().path().toSerializationFormat();
-                    }
-
-                    String manifest;
-                    if (persistentRepr.manifest().equals("")) {
-                        manifest = payload.getClass().getName();
-                    } else {
-                        manifest = persistentRepr.manifest();
                     }
 
                     HashMap<String, String> metadataMap = new HashMap<>();
