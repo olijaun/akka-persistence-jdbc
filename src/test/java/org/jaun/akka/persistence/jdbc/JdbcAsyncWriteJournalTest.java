@@ -89,6 +89,5 @@ class JdbcAsyncWriteJournalTest {
 
         ActorSystem<MyPersistentBehavior.Command> myPersistentActorRead = ActorSystem.create(id, "test", ConfigFactory.defaultApplication());
 
-        Thread.sleep(10000);
     }
 }

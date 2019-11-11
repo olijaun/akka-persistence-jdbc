@@ -37,16 +37,14 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
     public Future<Void> doAsyncReplayMessages(String persistenceId, long fromSequenceNr, long toSequenceNr,
                                               long max, Consumer<PersistentRepr> replayCallback) {
 
-        Consumer<PersistedEvent> consumer = persistedEvent -> {
-            replayCallback.accept(toPersistentRepr(persistedEvent));
-        };
+        Consumer<PersistentEvent> consumer = persistentEvent -> replayCallback.accept(toPersistentRepr(persistentEvent));
 
         jdbcEventsDao.replay(persistenceId, fromSequenceNr, toSequenceNr, max, consumer);
 
         return Future.successful(null);
     }
 
-    private PersistentRepr toPersistentRepr(PersistedEvent event) {
+    private PersistentRepr toPersistentRepr(PersistentEvent event) {
 
         String writerUuid = event.getMetadata().get(AKKA_WRITER_UUID);
         String sender = event.getMetadata().get(AKKA_SENDER); // TODO: how to convert this back to an actor ref?
@@ -121,7 +119,7 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                     metadataMap.put(AKKA_WRITER_UUID, persistentRepr.writerUuid());
                     metadataMap.put(AKKA_SENDER, sender);
 
-                    PersistedEvent persistedEvent = PersistedEvent.builder()
+                    PersistentEvent persistentEvent = PersistentEvent.builder()
                             .stream(persistentRepr.persistenceId())
                             .serializedEvent(serializedPayload.get())
                             .sequenceNumber(persistentRepr.sequenceNr())
@@ -130,7 +128,7 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                             .metadata(metadataMap)
                             .deleted(persistentRepr.deleted()).build();
 
-                    jdbcEventsDao.write(persistedEvent);
+                    jdbcEventsDao.write(persistentEvent);
 
                     return null;
                 });

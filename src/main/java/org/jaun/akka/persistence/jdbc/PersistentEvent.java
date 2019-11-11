@@ -7,7 +7,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class PersistedEvent {
+public class PersistentEvent {
 
     private final String stream;
     private final long sequenceNumber;
@@ -17,7 +17,7 @@ public class PersistedEvent {
     private final byte[] serializedEvent;
     private final boolean deleted;
 
-    private PersistedEvent(Builder builder) {
+    private PersistentEvent(Builder builder) {
         this.stream = requireNonNull(builder.stream);
         this.sequenceNumber = requireNonNull(builder.sequenceNumber);
         this.eventType = requireNonNull(builder.eventType);
@@ -68,8 +68,8 @@ public class PersistedEvent {
         private byte[] serializedEvent;
         private Boolean deleted;
 
-        public PersistedEvent build() {
-            return new PersistedEvent(this);
+        public PersistentEvent build() {
+            return new PersistentEvent(this);
         }
 
         public Builder stream(String strema) {

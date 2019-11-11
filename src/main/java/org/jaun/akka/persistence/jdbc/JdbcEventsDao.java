@@ -1,12 +1,17 @@
 package org.jaun.akka.persistence.jdbc;
 
-import akka.persistence.PersistentRepr;
 import com.google.gson.Gson;
 import org.apache.commons.dbcp2.BasicDataSource;
 
 import java.nio.charset.StandardCharsets;
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -28,20 +33,20 @@ public class JdbcEventsDao {
         dataSource.setPassword("admin");
     }
 
-    public void write(PersistedEvent persistedEvent) {
+    public void write(PersistentEvent persistentEvent) {
 
-        String concatenatedTags = persistedEvent.getTags().stream().collect(Collectors.joining(", "));
-        String metadata = gson.toJson(persistedEvent.getMetadata());
+        String concatenatedTags = persistentEvent.getTags().stream().collect(Collectors.joining(", "));
+        String metadata = gson.toJson(persistentEvent.getMetadata());
 
         try (Connection conn = dataSource.getConnection(); PreparedStatement stmt = conn.prepareStatement(INSERT_EVENT)) {
 
-            stmt.setString(1, persistedEvent.getStream());
-            stmt.setLong(2, persistedEvent.getSequenceNumber());
-            stmt.setString(3, persistedEvent.getEventType());
+            stmt.setString(1, persistentEvent.getStream());
+            stmt.setLong(2, persistentEvent.getSequenceNumber());
+            stmt.setString(3, persistentEvent.getEventType());
             stmt.setString(4, concatenatedTags);
             stmt.setString(5, metadata);
-            stmt.setString(6, new String(persistedEvent.getSerializedEvent(), StandardCharsets.UTF_8)); // TODO: just now
-            stmt.setBoolean(7, persistedEvent.isDeleted());
+            stmt.setString(6, new String(persistentEvent.getSerializedEvent(), StandardCharsets.UTF_8)); // TODO: just now
+            stmt.setBoolean(7, persistentEvent.isDeleted());
 
             stmt.execute();
 
@@ -53,7 +58,7 @@ public class JdbcEventsDao {
     }
 
     // TODO: handle max (database dependent: https://www.w3schools.com/sql/sql_top.asp)
-    public void replay(String stream, long fromSequenceNr, long toSequenceNr, long max, Consumer<PersistedEvent> replayCallback) {
+    public void replay(String stream, long fromSequenceNr, long toSequenceNr, long max, Consumer<PersistentEvent> replayCallback) {
 
         try (Connection conn = dataSource.getConnection(); PreparedStatement stmt = conn.prepareStatement(EVENTS_BY_STREAM)) {
 
@@ -88,14 +93,14 @@ public class JdbcEventsDao {
                 }
 
                 replayCallback.accept(
-                        PersistedEvent.builder()
-                        .stream(stream)
-                        .serializedEvent(eventData.getBytes(StandardCharsets.UTF_8))
-                        .sequenceNumber(seqNumber)
-                        .eventType(eventType)
-                        .tags(tags)
-                        .metadata(metadataMap)
-                        .deleted(deleted).build());
+                        PersistentEvent.builder()
+                                .stream(stream)
+                                .serializedEvent(eventData.getBytes(StandardCharsets.UTF_8))
+                                .sequenceNumber(seqNumber)
+                                .eventType(eventType)
+                                .tags(tags)
+                                .metadata(metadataMap)
+                                .deleted(deleted).build());
             }
 
         } catch (SQLException ex) {
