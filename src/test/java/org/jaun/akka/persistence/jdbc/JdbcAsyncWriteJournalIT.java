@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JdbcAsyncWriteJournalIT {
 
+    private static ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
 
     @BeforeAll
     private static void beforeAll() throws Exception {
@@ -44,6 +45,9 @@ class JdbcAsyncWriteJournalIT {
 
     @AfterAll
     private static void afterAll() throws Exception {
+
+        actorTestKit.shutdownTestKit();
+
         try ( //
               Connection conn = DriverManager.getConnection(JdbcEventsDao.DB_URL, "admin", "admin"); //
               Statement stmt = conn.createStatement()) {
@@ -74,16 +78,15 @@ class JdbcAsyncWriteJournalIT {
     @Test
     void doAsyncWriteMessages() throws InterruptedException {
 
-        ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
-
+        // prepare
         UUID persistenceId = UUID.randomUUID();
-
         ActorRef<Command> myPersistentActorWrite = actorTestKit.spawn(MyPersistentBehavior.create(persistenceId));
-
         TestProbe<MyPersistentBehavior.Ack> testProbe = actorTestKit.createTestProbe("ack");
 
+        // run
         myPersistentActorWrite.tell(new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do write test"));
 
+        // verify
         testProbe.expectMessage(MyPersistentBehavior.Ack.INSTANCE);
     }
 
@@ -97,7 +100,6 @@ class JdbcAsyncWriteJournalIT {
         // prepare
         UUID persistenceId = UUID.randomUUID();
 
-        ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
         TestProbe<MyPersistentBehavior.Ack> testProbe = actorTestKit.createTestProbe("ack");
         ActorRef<Command> myPersistentActorWrite = actorTestKit.spawn(MyPersistentBehavior.create(persistenceId));
 
@@ -112,15 +114,11 @@ class JdbcAsyncWriteJournalIT {
 
         // verify
         TestProbe<List<Event>> queryProbe = actorTestKit.createTestProbe("query");
-
         myPersistentActorRead.tell(new MyPersistentBehavior.QueryHandledEvents(queryProbe.getRef()));
-
         List<Event> events = queryProbe.receiveMessage();
 
         assertEquals(events.size(), 1);
-
         MyPersistentBehavior.TestEvent testEvent = (MyPersistentBehavior.TestEvent) events.get(0);
-
         assertEquals(testEvent.getValue(), testCommand.getValue());
     }
 }
