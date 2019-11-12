@@ -22,7 +22,7 @@ public class PersistentEvent {
         this.sequenceNumber = requireNonNull(builder.sequenceNumber);
         this.eventType = requireNonNull(builder.eventType);
         this.tags = requireNonNull(builder.tags);
-        this.metadata = requireNonNull(builder.metadata);
+        this.metadata = requireNonNull(builder.metadata); // TODO: make optional
         this.serializedEvent = requireNonNull(builder.serializedEvent);
         this.deleted = requireNonNull(builder.deleted);
     }

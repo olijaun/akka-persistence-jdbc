@@ -20,6 +20,7 @@ import scala.util.Try;
 import java.io.NotSerializableException;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 // https://doc.akka.io/docs/akka/current/persistence-journals.html
 // https://github.com/kpavlov/akka-custom-persistence/blob/21c98661a8ddbd0c0041dde9a02d588d6a4eb597/src/main/java/example/persistence/WorkerJournal.java
@@ -54,7 +55,7 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
 
         Object deserializedEvent;
         try {
-            Class<?> aClass = Thread.currentThread().getContextClassLoader().loadClass(event.getEventType());
+            Class<?> aClass = Class.forName(event.getEventType());
 
             Try<?> deserialize = serialization.deserialize(event.getSerializedEvent(), aClass);
 
@@ -87,7 +88,8 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
 
             try {
                 final Seq<PersistentRepr> persistentReprSeq = message.payload();
-                persistentReprSeq.foreach(persistentRepr -> {
+
+                List<PersistentEvent> list = JavaConversions.seqAsJavaList(persistentReprSeq).stream().map(persistentRepr -> {
 
                     Object payloadObject;
                     Set<String> tags;
@@ -100,7 +102,6 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                         tags = Collections.emptySet();
                     }
 
-
                     Serializer serializer;
                     try {
                         serializer = serialization.serializerFor(payloadObject.getClass());
@@ -109,7 +110,7 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                     }
 
                     String manifest;
-                    if(serializer.includeManifest()) {
+                    if (serializer.includeManifest()) {
 
                         if (serializer instanceof SerializerWithStringManifest) {
                             SerializerWithStringManifest serializerWithStringManifest = (SerializerWithStringManifest) serializer;
@@ -137,7 +138,7 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                     metadataMap.put(AKKA_WRITER_UUID, persistentRepr.writerUuid());
                     metadataMap.put(AKKA_SENDER, sender);
 
-                    PersistentEvent persistentEvent = PersistentEvent.builder()
+                    return PersistentEvent.builder()
                             .stream(persistentRepr.persistenceId())
                             .serializedEvent(serializedPayload.get())
                             .sequenceNumber(persistentRepr.sequenceNr())
@@ -146,10 +147,9 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
                             .metadata(metadataMap)
                             .deleted(persistentRepr.deleted()).build();
 
-                    jdbcEventsDao.write(persistentEvent);
+                }).collect(Collectors.toList());
 
-                    return null;
-                });
+                jdbcEventsDao.write(list);
 
                 result.add(Optional.empty());
 

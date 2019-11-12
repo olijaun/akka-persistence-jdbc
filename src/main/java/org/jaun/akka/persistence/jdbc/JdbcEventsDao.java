@@ -8,10 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -33,12 +30,27 @@ public class JdbcEventsDao {
         dataSource.setPassword("admin");
     }
 
-    public void write(PersistentEvent persistentEvent) {
+    public void write(List<PersistentEvent> persistentEvents) {
 
-        String concatenatedTags = persistentEvent.getTags().stream().collect(Collectors.joining(", "));
-        String metadata = gson.toJson(persistentEvent.getMetadata());
+        try (Connection conn = dataSource.getConnection()) {
 
-        try (Connection conn = dataSource.getConnection(); PreparedStatement stmt = conn.prepareStatement(INSERT_EVENT)) {
+            for(PersistentEvent persistentEvent: persistentEvents) {
+                write(conn, persistentEvent);
+            }
+
+            conn.commit();
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void write(Connection conn, PersistentEvent persistentEvent) throws SQLException {
+
+        try(PreparedStatement stmt = conn.prepareStatement(INSERT_EVENT)) {
+
+            String concatenatedTags = persistentEvent.getTags().stream().collect(Collectors.joining(", "));
+            String metadata = gson.toJson(persistentEvent.getMetadata());
 
             stmt.setString(1, persistentEvent.getStream());
             stmt.setLong(2, persistentEvent.getSequenceNumber());
@@ -49,11 +61,6 @@ public class JdbcEventsDao {
             stmt.setBoolean(7, persistentEvent.isDeleted());
 
             stmt.execute();
-
-            conn.commit();
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
