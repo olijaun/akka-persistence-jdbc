@@ -3,27 +3,25 @@ package org.jaun.akka.persistence.jdbc;
 import akka.actor.testkit.typed.javadsl.ActorTestKit;
 import akka.actor.testkit.typed.javadsl.TestProbe;
 import akka.actor.typed.ActorRef;
-import akka.actor.typed.ActorSystem;
-import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.Behaviors;
 import com.typesafe.config.ConfigFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-class JdbcAsyncWriteJournalTest {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class JdbcAsyncWriteJournalIT {
 
 
     @BeforeAll
@@ -66,52 +64,63 @@ class JdbcAsyncWriteJournalTest {
                 }
                 System.out.println();
             }
+            System.out.println();
         }
     }
 
-    @Test
-    void empty() throws Exception {
-    }
-
+    /**
+     * just write
+     */
     @Test
     void doAsyncWriteMessages() throws InterruptedException {
 
         ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
 
-        Behavior<MyPersistentBehavior.Command> myPersistentBehavior = MyPersistentBehavior.create("123");
+        UUID persistenceId = UUID.randomUUID();
 
-        ActorRef<MyPersistentBehavior.Command> myPersistentActorWrite = actorTestKit.spawn(myPersistentBehavior);
+        ActorRef<Command> myPersistentActorWrite = actorTestKit.spawn(MyPersistentBehavior.create(persistenceId));
 
         TestProbe<MyPersistentBehavior.Ack> testProbe = actorTestKit.createTestProbe("ack");
 
-        myPersistentActorWrite.tell(new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do something"));
+        myPersistentActorWrite.tell(new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do write test"));
 
-        testProbe.expectMessage(Duration.ofSeconds(5), MyPersistentBehavior.Ack.INSTANCE);
-
-        ActorRef<MyPersistentBehavior.Command> myPersistentActorRead = actorTestKit.spawn(myPersistentBehavior);
-
+        testProbe.expectMessage(MyPersistentBehavior.Ack.INSTANCE);
     }
 
+    /**
+     * write and then read. we stop the persistent actor after sending the command.
+     * then we re-spawn the behavior and check whether the event is replayed by querying the actor.
+     */
     @Test
     void doAsyncReplayMessages() throws InterruptedException {
 
         // prepare
-        ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
-        Behavior<MyPersistentBehavior.Command> myPersistentBehavior = MyPersistentBehavior.create("123");
-        TestProbe<MyPersistentBehavior.Ack> testProbe = actorTestKit.createTestProbe("ack");
-        ActorRef<MyPersistentBehavior.Command> myPersistentActorWrite = actorTestKit.spawn(myPersistentBehavior);
+        UUID persistenceId = UUID.randomUUID();
 
-        // run
-        myPersistentActorWrite.tell(new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do something"));
+        ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
+        TestProbe<MyPersistentBehavior.Ack> testProbe = actorTestKit.createTestProbe("ack");
+        ActorRef<Command> myPersistentActorWrite = actorTestKit.spawn(MyPersistentBehavior.create(persistenceId));
+
+        MyPersistentBehavior.TestCommand testCommand = new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do read test");
+        myPersistentActorWrite.tell(testCommand);
+        testProbe.expectMessage(MyPersistentBehavior.Ack.INSTANCE);
+
+        actorTestKit.stop(myPersistentActorWrite);
+
+        // run: spawn triggers a replay of events
+        ActorRef<Command> myPersistentActorRead = actorTestKit.spawn(MyPersistentBehavior.create(persistenceId));
 
         // verify
-        testProbe.expectMessage(Duration.ofSeconds(5), MyPersistentBehavior.Ack.INSTANCE);
+        TestProbe<List<Event>> queryProbe = actorTestKit.createTestProbe("query");
 
-        TestProbe<Event> testProbeEvent = actorTestKit.createTestProbe("ack");
+        myPersistentActorRead.tell(new MyPersistentBehavior.QueryHandledEvents(queryProbe.getRef()));
 
-//        ActorRef<Event> myPersistentActorRead = actorTestKit.spawn
-//                (Behaviors.monitor(Event.class, testProbeEvent.getRef(), myPersistentBehavior));
+        List<Event> events = queryProbe.receiveMessage();
 
-        testProbe.expectMessage(Duration.ofSeconds(5), MyPersistentBehavior.Ack.INSTANCE);
+        assertEquals(events.size(), 1);
+
+        MyPersistentBehavior.TestEvent testEvent = (MyPersistentBehavior.TestEvent) events.get(0);
+
+        assertEquals(testEvent.getValue(), testCommand.getValue());
     }
 }

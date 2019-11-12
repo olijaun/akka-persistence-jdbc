@@ -7,16 +7,13 @@ import akka.persistence.typed.javadsl.CommandHandler;
 import akka.persistence.typed.javadsl.EventHandler;
 import akka.persistence.typed.javadsl.EventSourcedBehavior;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class MyPersistentBehavior
         extends EventSourcedBehavior<
-        MyPersistentBehavior.Command, Event, MyPersistentBehavior.State> {
+        Command, Event, MyPersistentBehavior.State> {
 
-    public interface Command {
-    }
+    private final List<Event> handledEvents = new ArrayList<>();
 
     public enum Ack {
         INSTANCE
@@ -47,6 +44,20 @@ public class MyPersistentBehavior
         }
     }
 
+    public static class QueryHandledEvents implements QueryCommand<List<Event>> {
+
+        private final ActorRef<List<Event>> replyTo;
+
+        public QueryHandledEvents(ActorRef<List<Event>> replyTo) {
+            this.replyTo = replyTo;
+        }
+
+        public ActorRef<List<Event>> replyTo() {
+            return replyTo;
+        }
+
+    }
+
     public static class TestEvent implements Event {
         private final String value;
 
@@ -69,8 +80,8 @@ public class MyPersistentBehavior
     public static class State {
     }
 
-    public static Behavior<Command> create(String id) {
-        return new MyPersistentBehavior(PersistenceId.ofUniqueId(id));
+    public static Behavior<Command> create(UUID id) {
+        return new MyPersistentBehavior(PersistenceId.ofUniqueId(id.toString()));
     }
 
     private MyPersistentBehavior(PersistenceId persistenceId) {
@@ -88,8 +99,12 @@ public class MyPersistentBehavior
         return newCommandHandlerBuilder()
                 .forAnyState()
                 .onCommand(TestCommand.class, command -> {
-                    return Effect().persist(new TestEvent("hello world")) //
+                    return Effect().persist(new TestEvent(command.getValue())) //
                             .thenReply(command.replyTo(), state -> Ack.INSTANCE);
+                })
+                .onCommand(QueryHandledEvents.class, command -> {
+                    return Effect().none() //
+                            .thenReply(command.replyTo(), state -> handledEvents);
                 })
                 .build();
     }
@@ -97,7 +112,7 @@ public class MyPersistentBehavior
     @Override
     public EventHandler<State, Event> eventHandler() {
         return (state, event) -> {
-            System.out.println("received event: " + event);
+            handledEvents.add(event);
             return null;
         };
     }
