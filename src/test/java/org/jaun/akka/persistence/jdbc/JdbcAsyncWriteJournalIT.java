@@ -8,16 +8,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -27,20 +22,7 @@ class JdbcAsyncWriteJournalIT {
 
     @BeforeAll
     private static void beforeAll() throws Exception {
-
-        InputStream inputStream = JdbcAsyncWriteJournal.class.getResourceAsStream("/eventstore.ddl");
-
-        String ddl = new BufferedReader(new InputStreamReader(inputStream))
-                .lines().collect(Collectors.joining("\n"));
-
-        try ( //
-              Connection conn = DriverManager.getConnection(JdbcEventsDao.DB_URL, null, null); //
-              Statement stmt = conn.createStatement()) {
-
-            conn.setAutoCommit(true);
-
-            stmt.executeUpdate(ddl);
-        }
+        DbSetup.setup();
     }
 
     @AfterAll
@@ -49,7 +31,7 @@ class JdbcAsyncWriteJournalIT {
         actorTestKit.shutdownTestKit();
 
         try ( //
-              Connection conn = DriverManager.getConnection(JdbcEventsDao.DB_URL, "admin", "admin"); //
+              Connection conn = DbSetup.getDataSource().getConnection(); //
               Statement stmt = conn.createStatement()) {
 
             ResultSet resultSet = stmt.executeQuery("select * from event;");

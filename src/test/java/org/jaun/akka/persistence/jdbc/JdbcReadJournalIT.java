@@ -52,26 +52,15 @@ class JdbcReadJournalIT {
         }
     }
 
-    void insert(PersistentEvent event) {
-        dao.write(Collections.singletonList(event));
-    }
-
     @Test
     void currentEventsByPersistenceId() throws ExecutionException, InterruptedException {
 
         // prepare
         String stream = UUID.randomUUID().toString();
 
-        PersistentEvent event = PersistentEvent.builder()
-                .stream(stream)
-                .serializedEvent("{\"value\":\"do write test\"}".getBytes(StandardCharsets.UTF_8))
-                .eventType("org.jaun.akka.persistence.jdbc.MyPersistentBehavior$TestEvent")
-                .metadata(Collections.emptyMap())
-                .sequenceNumber(1L)
-                .tags(Collections.emptySet())
-                .deleted(false).build();
+        PersistentEvent event = PersistentEventFixture.persistentEvent(stream).build();
 
-        insert(event);
+        dao.write(Collections.singletonList(event));
 
         JdbcReadJournal readJournal = PersistenceQuery.get(Adapter.toClassic(actorTestKit.system())).getReadJournalFor(JdbcReadJournal.class,
                 JdbcReadJournal.Identifier());

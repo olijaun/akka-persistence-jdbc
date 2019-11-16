@@ -16,8 +16,8 @@ public class Query {
         this.dataSource = Objects.requireNonNull(dataSource);
     }
 
-    <T> Iterator<T> run(StatementExecutor statementExecutor, RowMapper<T> mapper) {
-        return new ResultSetIterator<>(statementExecutor, mapper);
+    <T> Iterable<T> run(StatementExecutor statementExecutor, RowMapper<T> mapper) {
+        return () -> new ResultSetIterator<>(statementExecutor, mapper);
     }
 
     public class ResultSetIterator<T> implements Iterator<T> {
@@ -51,6 +51,8 @@ public class Query {
         @Override
         public boolean hasNext() {
 
+            runStatement();
+
             try {
 
                 if (hasNextWasSuccessfull || resultSet.next()) {
@@ -81,7 +83,7 @@ public class Query {
                     return rowMapper.mapRow(resultSet, rowNum);
 
                 } else {
-                    if(!connection.isClosed()) {
+                    if (!connection.isClosed()) {
                         connection.close();
                     }
                     throw new NoSuchElementException();

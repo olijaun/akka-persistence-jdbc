@@ -9,7 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -34,7 +33,7 @@ public class JdbcEventsDao {
 
         try (Connection conn = dataSource.getConnection()) {
 
-            for(PersistentEvent persistentEvent: persistentEvents) {
+            for (PersistentEvent persistentEvent : persistentEvents) {
                 write(conn, persistentEvent);
             }
 
@@ -47,7 +46,7 @@ public class JdbcEventsDao {
 
     private void write(Connection conn, PersistentEvent persistentEvent) throws SQLException {
 
-        try(PreparedStatement stmt = conn.prepareStatement(INSERT_EVENT)) {
+        try (PreparedStatement stmt = conn.prepareStatement(INSERT_EVENT)) {
 
             String concatenatedTags = persistentEvent.getTags().stream().collect(Collectors.joining(", "));
             String metadata = gson.toJson(persistentEvent.getMetadata());
@@ -65,54 +64,51 @@ public class JdbcEventsDao {
     }
 
     // TODO: handle max (database dependent: https://www.w3schools.com/sql/sql_top.asp)
-    public void replay(String stream, long fromSequenceNr, long toSequenceNr, long max, Consumer<PersistentEvent> replayCallback) {
+    public Iterable<PersistentEvent> read(String stream, long fromSequenceNr, long toSequenceNr, long max) {
 
-        try (Connection conn = dataSource.getConnection(); PreparedStatement stmt = conn.prepareStatement(EVENTS_BY_STREAM)) {
-
+        StatementExecutor excutor = conn -> {
+            PreparedStatement stmt = conn.prepareStatement(EVENTS_BY_STREAM);
             stmt.setString(1, stream);
             stmt.setLong(2, fromSequenceNr);
             stmt.setLong(3, toSequenceNr);
+            return stmt.executeQuery();
+        };
 
-            ResultSet resultSet = stmt.executeQuery();
+        RowMapper<PersistentEvent> rowMapper = (resultSet, rowNum) -> {
 
-            while (resultSet.next()) {
+            String eventData = resultSet.getString("event_data"); // TODO: change to byte
+            long seqNumber = resultSet.getLong("seq_number");
+            String eventType = resultSet.getString("event_type");
+            String commaSeparatedTags = resultSet.getString("tags");
+            String metadata = resultSet.getString("metadata");
+            boolean deleted = resultSet.getBoolean("deleted");
 
-                String eventData = resultSet.getString("event_data"); // TODO: change to byte
-                long seqNumber = resultSet.getLong("seq_number");
-                String eventType = resultSet.getString("event_type");
-                String commaSeparatedTags = resultSet.getString("tags");
-                String metadata = resultSet.getString("metadata");
-                boolean deleted = resultSet.getBoolean("deleted");
-
-                Set<String> tags;
-                if (commaSeparatedTags != null) {
-                    tags = Stream.of(commaSeparatedTags.split(",")).map(s -> s.trim()).collect(Collectors.toSet());
-                } else {
-                    tags = Collections.emptySet();
-                }
-
-                // TODO
-                Map<String, String> metadataMap;
-                if (metadata != null) {
-                    metadataMap = gson.fromJson(metadata, HashMap.class);
-                } else {
-                    metadataMap = Collections.emptyMap();
-                }
-
-                replayCallback.accept(
-                        PersistentEvent.builder()
-                                .stream(stream)
-                                .serializedEvent(eventData.getBytes(StandardCharsets.UTF_8))
-                                .sequenceNumber(seqNumber)
-                                .eventType(eventType)
-                                .tags(tags)
-                                .metadata(metadataMap)
-                                .deleted(deleted).build());
+            Set<String> tags;
+            if (commaSeparatedTags != null) {
+                tags = Stream.of(commaSeparatedTags.split(",")).map(s -> s.trim()).collect(Collectors.toSet());
+            } else {
+                tags = Collections.emptySet();
             }
 
-        } catch (SQLException ex) {
-            throw new IllegalStateException(ex);
-        }
+            // TODO
+            Map<String, String> metadataMap;
+            if (metadata != null) {
+                metadataMap = gson.fromJson(metadata, HashMap.class);
+            } else {
+                metadataMap = Collections.emptyMap();
+            }
+
+            return PersistentEvent.builder()
+                    .stream(stream)
+                    .serializedEvent(eventData.getBytes(StandardCharsets.UTF_8))
+                    .sequenceNumber(seqNumber)
+                    .eventType(eventType)
+                    .tags(tags)
+                    .metadata(metadataMap)
+                    .deleted(deleted).build();
+        };
+
+        return new Query(dataSource).run(excutor, rowMapper);
     }
 
 

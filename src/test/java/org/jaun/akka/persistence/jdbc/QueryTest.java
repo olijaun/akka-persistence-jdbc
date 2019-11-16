@@ -33,16 +33,17 @@ class QueryTest {
         dataSource.setPassword("admin");
 
         try ( //
-              Connection conn = DriverManager.getConnection(JdbcEventsDao.DB_URL, null, null); //
+              Connection conn = dataSource.getConnection(); //
               Statement stmt = conn.createStatement()) {
 
-            conn.setAutoCommit(true);
+
             stmt.executeUpdate("create table test_table(col1 varchar, col2 int);");
 
             stmt.executeUpdate("insert into test_table(col1, col2) values('abc', 123)");
             stmt.executeUpdate("insert into test_table(col1, col2) values('def', 456)");
             stmt.executeUpdate("insert into test_table(col1, col2) values('ghi', 789)");
 
+            conn.commit();
         }
     }
 
@@ -64,19 +65,19 @@ class QueryTest {
             return stmt.executeQuery();
         };
 
-        Iterator<Pair<String, Integer>> iterable = query.run(executor, rowMapper);
+        Iterator<Pair<String, Integer>> result = query.run(executor, rowMapper).iterator();
 
-        Pair<String, Integer> pair1 = iterable.next();
+        Pair<String, Integer> pair1 = result.next();
 
         assertThat(pair1.getKey()).isEqualTo("1:abc");
         assertThat(pair1.getValue()).isEqualTo(123);
 
-        Pair<String, Integer> pair2 = iterable.next();
+        Pair<String, Integer> pair2 = result.next();
 
         assertThat(pair2.getKey()).isEqualTo("2:ghi");
         assertThat(pair2.getValue()).isEqualTo(789);
 
-        Executable e = () -> iterable.next();
+        Executable e = () -> result.next();
 
         assertThrows(NoSuchElementException.class, e);
     }

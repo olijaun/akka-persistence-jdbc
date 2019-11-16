@@ -1,9 +1,6 @@
 package org.jaun.akka.persistence.jdbc;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static java.util.Objects.requireNonNull;
 
@@ -53,6 +50,20 @@ public class PersistentEvent {
 
     public boolean isDeleted() {
         return deleted;
+    }
+
+
+    @Override
+    public String toString() {
+        return "PersistentEvent{" +
+                "stream='" + stream + '\'' +
+                ", sequenceNumber=" + sequenceNumber +
+                ", eventType='" + eventType + '\'' +
+                ", tags=" + tags +
+                ", metadata=" + metadata +
+                ", serializedEvent=<not shown>" +
+                ", deleted=" + deleted +
+                '}';
     }
 
     public static Builder builder() {

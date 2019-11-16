@@ -41,9 +41,8 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
     public Future<Void> doAsyncReplayMessages(String persistenceId, long fromSequenceNr, long toSequenceNr,
                                               long max, Consumer<PersistentRepr> replayCallback) {
 
-        Consumer<PersistentEvent> consumer = persistentEvent -> replayCallback.accept(toPersistentRepr(persistentEvent));
-
-        jdbcEventsDao.replay(persistenceId, fromSequenceNr, toSequenceNr, max, consumer);
+        Iterable<PersistentEvent> events = jdbcEventsDao.read(persistenceId, fromSequenceNr, toSequenceNr, max);
+        events.forEach(event -> replayCallback.accept(toPersistentRepr(event)));
 
         return Future.successful(null);
     }
@@ -162,6 +161,5 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
 
     public Future<Void> doAsyncDeleteMessagesTo(String s, long l) {
         throw new UnsupportedOperationException("Method is not implemented: doAsyncDeleteMessagesTo");
-
     }
 }

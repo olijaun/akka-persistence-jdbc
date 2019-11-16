@@ -9,13 +9,17 @@ import akka.serialization.Serialization;
 import akka.serialization.SerializationExtension;
 import akka.serialization.Serializers;
 import akka.stream.javadsl.Source;
+import akka.stream.javadsl.StreamConverters;
+import akka.stream.javadsl.StreamConverters$;
+import com.google.gson.internal.Streams;
 import com.typesafe.config.Config;
 import scala.concurrent.duration.FiniteDuration;
 import scala.util.Try;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 // https://blog.jooq.org/tag/slick/
 // https://stackoverflow.com/questions/44999614/stream-records-from-database-using-akka-stream
@@ -45,12 +49,8 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     @Override
     public Source<EventEnvelope, NotUsed> currentEventsByPersistenceId(String persistenceId, long fromSequenceNr, long toSequenceNr) {
-
-        ArrayList<EventEnvelope> persistentEvents = new ArrayList<>();
-
-        eventsDao.replay(persistenceId, fromSequenceNr, toSequenceNr, Long.MAX_VALUE, e -> persistentEvents.add(toEventEnvelope(e)));
-
-        return Source.from(persistentEvents);
+        Iterable<PersistentEvent> iterable = eventsDao.read(persistenceId, fromSequenceNr, toSequenceNr, Long.MAX_VALUE);
+        return Source.from(iterable).map(this::toEventEnvelope);
     }
 
     private EventEnvelope toEventEnvelope(PersistentEvent persistentEvent) {
