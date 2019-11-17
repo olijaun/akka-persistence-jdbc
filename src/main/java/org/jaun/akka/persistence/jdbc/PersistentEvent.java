@@ -19,7 +19,7 @@ public class PersistentEvent {
         this.sequenceNumber = requireNonNull(builder.sequenceNumber);
         this.eventType = requireNonNull(builder.eventType);
         this.tags = requireNonNull(builder.tags);
-        this.metadata = requireNonNull(builder.metadata); // TODO: make optional
+        this.metadata = requireNonNull(builder.metadata);
         this.serializedEvent = requireNonNull(builder.serializedEvent);
         this.deleted = requireNonNull(builder.deleted);
     }
@@ -52,6 +52,26 @@ public class PersistentEvent {
         return deleted;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PersistentEvent event = (PersistentEvent) o;
+        return sequenceNumber == event.sequenceNumber &&
+                deleted == event.deleted &&
+                stream.equals(event.stream) &&
+                eventType.equals(event.eventType) &&
+                tags.equals(event.tags) &&
+                metadata.equals(event.metadata) &&
+                Arrays.equals(serializedEvent, event.serializedEvent);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(stream, sequenceNumber, eventType, tags, metadata, deleted);
+        result = 31 * result + Arrays.hashCode(serializedEvent);
+        return result;
+    }
 
     @Override
     public String toString() {
@@ -99,12 +119,20 @@ public class PersistentEvent {
         }
 
         public Builder tags(Set<String> tags) {
-            this.tags = tags;
+            if(tags == null) {
+                this.tags = new HashSet<>();
+            } else {
+                this.tags = tags;
+            }
             return this;
         }
 
         public Builder metadata(Map<String, String> metadata) {
-            this.metadata = metadata;
+            if(metadata == null) {
+                this.metadata = new HashMap<>();
+            } else {
+                this.metadata = metadata;
+            }
             return this;
         }
 

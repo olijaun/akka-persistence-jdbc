@@ -8,9 +8,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,7 +19,7 @@ class JdbcAsyncWriteJournalIT {
 
     @BeforeAll
     private static void beforeAll() throws Exception {
-        DbSetup.setup();
+        TestDb.setup();
     }
 
     @AfterAll
@@ -30,28 +27,7 @@ class JdbcAsyncWriteJournalIT {
 
         actorTestKit.shutdownTestKit();
 
-        try ( //
-              Connection conn = DbSetup.getDataSource().getConnection(); //
-              Statement stmt = conn.createStatement()) {
-
-            ResultSet resultSet = stmt.executeQuery("select * from event;");
-
-            int columnCount = resultSet.getMetaData().getColumnCount();
-
-            for (int i = 1; i <= columnCount; i++) {
-                System.out.print(resultSet.getMetaData().getColumnLabel(i) + "\t\t\t | ");
-            }
-            System.out.println();
-
-            while (resultSet.next()) {
-
-                for (int i = 1; i <= columnCount; i++) {
-                    System.out.print(resultSet.getString(i) + "\t\t\t | ");
-                }
-                System.out.println();
-            }
-            System.out.println();
-        }
+        TestDb.printTables();
     }
 
     /**

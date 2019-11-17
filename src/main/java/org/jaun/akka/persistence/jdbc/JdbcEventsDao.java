@@ -25,8 +25,6 @@ public class JdbcEventsDao {
     JdbcEventsDao() {
         dataSource = new BasicDataSource();
         dataSource.setUrl(DB_URL);
-        dataSource.setUsername("admin");
-        dataSource.setPassword("admin");
     }
 
     public void write(List<PersistentEvent> persistentEvents) {
@@ -85,12 +83,14 @@ public class JdbcEventsDao {
 
             Set<String> tags;
             if (commaSeparatedTags != null) {
-                tags = Stream.of(commaSeparatedTags.split(",")).map(s -> s.trim()).collect(Collectors.toSet());
+                tags = Stream.of(commaSeparatedTags.split(",")) //
+                        .map(s -> s.trim()) //
+                        .filter(s -> !s.isEmpty()) //
+                        .collect(Collectors.toSet());
             } else {
                 tags = Collections.emptySet();
             }
 
-            // TODO
             Map<String, String> metadataMap;
             if (metadata != null) {
                 metadataMap = gson.fromJson(metadata, HashMap.class);

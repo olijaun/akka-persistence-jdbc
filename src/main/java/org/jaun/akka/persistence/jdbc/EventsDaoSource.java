@@ -14,6 +14,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+/**
+ * https://stackoverflow.com/questions/49708397/create-source-from-a-polling-method-in-akka
+ * https://github.com/akka/alpakka/blob/c1315a8d1979b4399b62db726c159d64149501f7/file/src/main/java/akka/stream/alpakka/file/javadsl/DirectoryChangesSource.java#L33-L170
+ * https://akka.io/blog/2016/08/29/connecting-existing-apis
+ * https://gist.github.com/johanandren/41b096c9ee647863c6c04959be548b25
+ *
+ */
 public final class EventsDaoSource extends GraphStage<SourceShape<List<PersistentEvent>>> {
 
     private final JdbcEventsDao eventsDao;
@@ -61,7 +68,6 @@ public final class EventsDaoSource extends GraphStage<SourceShape<List<Persisten
                 doPull();
             }
 
-
             private void doPull() {
 
                 try {
@@ -71,6 +77,7 @@ public final class EventsDaoSource extends GraphStage<SourceShape<List<Persisten
                     if(events.size() > 0) {
                         position += events.size();
                         push(out, events);
+
                     } else {
                         scheduleOnce("poll", pollingInterval);
                     }

@@ -7,19 +7,13 @@ import akka.persistence.query.Offset;
 import akka.persistence.query.javadsl.*;
 import akka.serialization.Serialization;
 import akka.serialization.SerializationExtension;
-import akka.serialization.Serializers;
 import akka.stream.javadsl.Source;
-import akka.stream.javadsl.StreamConverters;
-import akka.stream.javadsl.StreamConverters$;
-import com.google.gson.internal.Streams;
 import com.typesafe.config.Config;
 import scala.concurrent.duration.FiniteDuration;
 import scala.util.Try;
 
-import java.util.*;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 // https://blog.jooq.org/tag/slick/
 // https://stackoverflow.com/questions/44999614/stream-records-from-database-using-akka-stream
@@ -44,7 +38,9 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     @Override
     public Source<EventEnvelope, NotUsed> eventsByPersistenceId(String persistenceId, long fromSequenceNr, long toSequenceNr) {
-        return null;
+
+        Source<List<PersistentEvent>, NotUsed> source = EventsDaoSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        return source.flatMapConcat(peristenEventList -> Source.from(peristenEventList)).map(this::toEventEnvelope);
     }
 
     @Override

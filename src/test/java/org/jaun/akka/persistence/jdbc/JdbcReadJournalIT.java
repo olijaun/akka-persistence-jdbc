@@ -7,25 +7,16 @@ import akka.persistence.query.EventEnvelope;
 import akka.persistence.query.PersistenceQuery;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import com.google.common.truth.Truth;
 import com.typesafe.config.ConfigFactory;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JdbcReadJournalIT {
 
@@ -35,21 +26,10 @@ class JdbcReadJournalIT {
 
     @BeforeAll
     private static void beforeAll() throws Exception {
+
+        TestDb.setup();
+
         dao = new JdbcEventsDao();
-
-        InputStream inputStream = JdbcAsyncWriteJournal.class.getResourceAsStream("/eventstore.ddl");
-
-        String ddl = new BufferedReader(new InputStreamReader(inputStream))
-                .lines().collect(Collectors.joining("\n"));
-
-        try ( //
-              Connection conn = DriverManager.getConnection(JdbcEventsDao.DB_URL, null, null); //
-              Statement stmt = conn.createStatement()) {
-
-            conn.setAutoCommit(true);
-
-            stmt.executeUpdate(ddl);
-        }
     }
 
     @Test
@@ -75,7 +55,7 @@ class JdbcReadJournalIT {
         assertThat(eventEnvelopes.get(0).persistenceId()).isEqualTo(stream);
         assertThat(eventEnvelopes.get(0).sequenceNr()).isEqualTo(1);
 
-        MyPersistentBehavior.TestEvent testEvent = (MyPersistentBehavior.TestEvent)eventEnvelopes.get(0).event();
+        MyPersistentBehavior.TestEvent testEvent = (MyPersistentBehavior.TestEvent) eventEnvelopes.get(0).event();
 
         assertThat(testEvent.getValue()).isEqualTo("do write test");
     }

@@ -55,7 +55,7 @@ public class Query {
 
             try {
 
-                if (hasNextWasSuccessfull || resultSet.next()) {
+                if (!connection.isClosed() && (hasNextWasSuccessfull || resultSet.next())) {
                     hasNextWasSuccessfull = true;
                     return true;
                 } else {
