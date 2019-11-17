@@ -127,6 +127,10 @@ public class PersistentEvent {
             return this;
         }
 
+        public Builder tags(String... s) {
+            return tags(new HashSet<>(Arrays.asList(s)));
+        }
+
         public Builder metadata(Map<String, String> metadata) {
             if(metadata == null) {
                 this.metadata = new HashMap<>();

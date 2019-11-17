@@ -4,6 +4,7 @@ import akka.NotUsed;
 import akka.actor.ExtendedActorSystem;
 import akka.persistence.query.EventEnvelope;
 import akka.persistence.query.Offset;
+import akka.persistence.query.Sequence;
 import akka.persistence.query.javadsl.*;
 import akka.serialization.Serialization;
 import akka.serialization.SerializationExtension;
@@ -58,7 +59,15 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     @Override
     public Source<EventEnvelope, NotUsed> currentEventsByTag(String tag, Offset offset) {
-        return null;
+
+        if(!(offset instanceof Sequence)) {
+            throw new IllegalStateException("unsupported offset type: " + offset.getClass());
+        }
+
+        Iterable<PersistentEventWithOffset> iterable = eventsDao.readByTag(tag, ((Sequence) offset).value());
+
+        return Source.from(iterable).map(this::toEventEnvelope);
+
     }
 
     @Override
@@ -68,7 +77,11 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     @Override
     public Source<EventEnvelope, NotUsed> eventsByTag(String tag, Offset offset) {
-        return null;
+        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventByTagSource.create(
+                new JdbcEventsDao(), "test", 0,
+                FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+
+        return source.flatMapConcat(persistentEventList -> Source.from(persistentEventList)).map(this::toEventEnvelope);
     }
 
     @Override

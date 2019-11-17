@@ -9,9 +9,7 @@ import akka.persistence.typed.javadsl.EventSourcedBehavior;
 
 import java.util.*;
 
-public class MyPersistentBehavior
-        extends EventSourcedBehavior<
-        Command, Event, MyPersistentBehavior.State> {
+public class MyPersistentBehavior extends EventSourcedBehavior<Command, Event, MyPersistentBehavior.State> {
 
     private final List<Event> handledEvents = new ArrayList<>();
 

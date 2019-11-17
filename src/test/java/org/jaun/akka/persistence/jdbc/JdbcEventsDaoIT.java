@@ -47,10 +47,10 @@ class JdbcEventsDaoIT {
     void readByTag() {
 
         JdbcEventsDao dao = new JdbcEventsDao();
-        PersistentEvent event11 = PersistentEventFixture.persistentEvent("stream1").tags(setOf("tag1", "tag2")).sequenceNumber(1L).build();
-        PersistentEvent event12 = PersistentEventFixture.persistentEvent("stream1").tags(setOf("tag2")).sequenceNumber(2L).build();
-        PersistentEvent event21 = PersistentEventFixture.persistentEvent("stream2").tags(setOf("tag1", "tag3")).sequenceNumber(1L).build();
-        PersistentEvent event22 = PersistentEventFixture.persistentEvent("stream2").tags(setOf("tag2")).sequenceNumber(2L).build();
+        PersistentEvent event11 = PersistentEventFixture.persistentEvent("stream1").tags("tag1", "tag2").sequenceNumber(1L).build();
+        PersistentEvent event12 = PersistentEventFixture.persistentEvent("stream1").tags("tag2").sequenceNumber(2L).build();
+        PersistentEvent event21 = PersistentEventFixture.persistentEvent("stream2").tags("tag1", "tag3").sequenceNumber(1L).build();
+        PersistentEvent event22 = PersistentEventFixture.persistentEvent("stream2").tags("tag2").sequenceNumber(2L).build();
 
         dao.write(asList(event11, event12, event21, event22));
 
@@ -62,9 +62,5 @@ class JdbcEventsDaoIT {
         assertThat(iterator.next()).isEqualTo(new PersistentEventWithOffset(event21, 3));
 
         assertThat(iterator.hasNext()).isFalse();
-    }
-
-    private Set<String> setOf(String... s) {
-        return new HashSet<>(Arrays.asList(s));
     }
 }
