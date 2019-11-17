@@ -15,9 +15,10 @@ import java.util.stream.Stream;
 public class JdbcEventsDao {
 
     public static final String DB_URL = "jdbc:h2:mem:testdb;LOCK_MODE=1;USER=admin;PASSWORD=admin;DB_CLOSE_DELAY=-1";
-    private static final String INSERT_EVENT = "insert into event(stream, seq_number, event_type, tags, metadata, event_data, deleted) values(?, ?, ?, ?, ?, ?, ?)";
-    private static final String MAX_SEQ_NR = "select max(seq_number) from event where stream = ?";
-    private static final String EVENTS_BY_STREAM = "select stream, seq_number, event_type, tags, metadata, event_data, deleted from event where stream = ? AND seq_number >= ? and seq_number <= ?";
+    private static final String INSERT_EVENT = "insert into event(stream, stream_seq_number, event_type, tags, metadata, event_data, deleted) values(?, ?, ?, ?, ?, ?, ?)";
+    private static final String MAX_SEQ_NR = "select max(stream_seq_number) from event where stream = ?";
+    private static final String EVENTS_BY_STREAM = "select seq, stream, stream_seq_number, event_type, tags, metadata, event_data, deleted from event where stream = ? AND stream_seq_number >= ? and stream_seq_number <= ?";
+    private static final String EVENTS_BY_TAG = "select seq, stream, stream_seq_number, event_type, tags, metadata, event_data, deleted from event where tags LIKE ? AND seq > ?";
     private static final String PERSISTENCE_IDS = "select distinct stream from event order by stream";
 
     private BasicDataSource dataSource;
@@ -62,8 +63,7 @@ public class JdbcEventsDao {
         }
     }
 
-    // TODO: handle max (database dependent: https://www.w3schools.com/sql/sql_top.asp)
-    public Iterable<PersistentEvent> read(String stream, long fromSequenceNr, long toSequenceNr, long max) {
+    public Iterable<PersistentEventWithOffset> readByStream(String stream, long fromSequenceNr, long toSequenceNr, long max) {
 
         StatementExecutor excutor = conn -> {
             PreparedStatement stmt = conn.prepareStatement(EVENTS_BY_STREAM);
@@ -73,10 +73,11 @@ public class JdbcEventsDao {
             return stmt.executeQuery();
         };
 
-        RowMapper<PersistentEvent> rowMapper = (resultSet, rowNum) -> {
+        RowMapper<PersistentEventWithOffset> rowMapper = (resultSet, rowNum) -> {
 
+            long offset = resultSet.getLong("seq");
             String eventData = resultSet.getString("event_data"); // TODO: change to byte
-            long seqNumber = resultSet.getLong("seq_number");
+            long seqNumber = resultSet.getLong("stream_seq_number");
             String eventType = resultSet.getString("event_type");
             String commaSeparatedTags = resultSet.getString("tags");
             String metadata = resultSet.getString("metadata");
@@ -99,7 +100,7 @@ public class JdbcEventsDao {
                 metadataMap = Collections.emptyMap();
             }
 
-            return PersistentEvent.builder()
+            PersistentEvent persistentEvent = PersistentEvent.builder()
                     .stream(stream)
                     .serializedEvent(eventData.getBytes(StandardCharsets.UTF_8))
                     .sequenceNumber(seqNumber)
@@ -107,6 +108,60 @@ public class JdbcEventsDao {
                     .tags(tags)
                     .metadata(metadataMap)
                     .deleted(deleted).build();
+
+            return new PersistentEventWithOffset(persistentEvent, offset);
+        };
+
+        return new Query(dataSource).run(excutor, rowMapper);
+    }
+
+    public Iterable<PersistentEventWithOffset> readByTag(String tag, long fromOffset) {
+
+        StatementExecutor excutor = conn -> {
+            PreparedStatement stmt = conn.prepareStatement(EVENTS_BY_TAG);
+            stmt.setString(1, tag);
+            stmt.setLong(2, fromOffset);
+            return stmt.executeQuery();
+        };
+
+        RowMapper<PersistentEventWithOffset> rowMapper = (resultSet, rowNum) -> {
+
+            String stream = resultSet.getString("stream");
+            long offset = resultSet.getLong("seq");
+            String eventData = resultSet.getString("event_data"); // TODO: change to byte
+            long seqNumber = resultSet.getLong("stream_seq_number");
+            String eventType = resultSet.getString("event_type");
+            String commaSeparatedTags = resultSet.getString("tags");
+            String metadata = resultSet.getString("metadata");
+            boolean deleted = resultSet.getBoolean("deleted");
+
+            Set<String> tags;
+            if (commaSeparatedTags != null) {
+                tags = Stream.of(commaSeparatedTags.split(",")) //
+                        .map(s -> s.trim()) //
+                        .filter(s -> !s.isEmpty()) //
+                        .collect(Collectors.toSet());
+            } else {
+                tags = Collections.emptySet();
+            }
+
+            Map<String, String> metadataMap;
+            if (metadata != null) {
+                metadataMap = gson.fromJson(metadata, HashMap.class);
+            } else {
+                metadataMap = Collections.emptyMap();
+            }
+
+            PersistentEvent persistentEvent = PersistentEvent.builder()
+                    .stream(stream)
+                    .serializedEvent(eventData.getBytes(StandardCharsets.UTF_8))
+                    .sequenceNumber(seqNumber)
+                    .eventType(eventType)
+                    .tags(tags)
+                    .metadata(metadataMap)
+                    .deleted(deleted).build();
+
+            return new PersistentEventWithOffset(persistentEvent, offset);
         };
 
         return new Query(dataSource).run(excutor, rowMapper);

@@ -39,21 +39,21 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
     @Override
     public Source<EventEnvelope, NotUsed> eventsByPersistenceId(String persistenceId, long fromSequenceNr, long toSequenceNr) {
 
-        Source<List<PersistentEvent>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
         return source.flatMapConcat(persistentEventList -> Source.from(persistentEventList)).map(this::toEventEnvelope);
     }
 
     @Override
     public Source<EventEnvelope, NotUsed> currentEventsByPersistenceId(String persistenceId, long fromSequenceNr, long toSequenceNr) {
-        Iterable<PersistentEvent> iterable = eventsDao.read(persistenceId, fromSequenceNr, toSequenceNr, Long.MAX_VALUE);
+        Iterable<PersistentEventWithOffset> iterable = eventsDao.readByStream(persistenceId, fromSequenceNr, toSequenceNr, Long.MAX_VALUE);
         return Source.from(iterable).map(this::toEventEnvelope);
     }
 
-    private EventEnvelope toEventEnvelope(PersistentEvent persistentEvent) {
+    private EventEnvelope toEventEnvelope(PersistentEventWithOffset persistentEventWithOffset) {
 
-        Object payloadEvent = Converter.toPayload(serialization, persistentEvent);
+        Object payloadEvent = Converter.toPayload(serialization, persistentEventWithOffset.getEvent());
 
-        return new EventEnvelope(Offset.sequence(persistentEvent.getSequenceNumber()), persistentEvent.getStream(), persistentEvent.getSequenceNumber(), payloadEvent);
+        return new EventEnvelope(Offset.sequence(persistentEventWithOffset.getOffset()), persistentEventWithOffset.getEvent().getStream(), persistentEventWithOffset.getEvent().getSequenceNumber(), payloadEvent);
     }
 
     @Override

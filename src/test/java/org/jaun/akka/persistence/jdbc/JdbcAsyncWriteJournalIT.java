@@ -49,7 +49,7 @@ class JdbcAsyncWriteJournalIT {
     }
 
     /**
-     * write and then read. we stop the persistent actor after sending the command.
+     * write and then readByStream. we stop the persistent actor after sending the command.
      * then we re-spawn the behavior and check whether the event is replayed by querying the actor.
      */
     @Test
@@ -61,7 +61,7 @@ class JdbcAsyncWriteJournalIT {
         TestProbe<MyPersistentBehavior.Ack> testProbe = actorTestKit.createTestProbe("ack");
         ActorRef<Command> myPersistentActorWrite = actorTestKit.spawn(MyPersistentBehavior.create(persistenceId));
 
-        MyPersistentBehavior.TestCommand testCommand = new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do read test");
+        MyPersistentBehavior.TestCommand testCommand = new MyPersistentBehavior.TestCommand(testProbe.getRef(), "do readByStream test");
         myPersistentActorWrite.tell(testCommand);
         testProbe.expectMessage(MyPersistentBehavior.Ack.INSTANCE);
 

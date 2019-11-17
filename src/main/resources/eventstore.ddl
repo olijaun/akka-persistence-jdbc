@@ -1,6 +1,7 @@
 create table event (
+    seq long auto_increment,
     stream varchar(255),
-    seq_number long,
+    stream_seq_number long,
     event_type varchar(255),
     tags varchar(255),
     metadata varchar(255),

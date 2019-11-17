@@ -7,7 +7,6 @@ import akka.stream.SourceShape;
 import akka.stream.javadsl.Source;
 import akka.stream.stage.*;
 import scala.concurrent.duration.FiniteDuration;
-import scala.util.Try;
 
 import java.io.IOException;
 import java.util.List;
@@ -21,16 +20,16 @@ import java.util.stream.StreamSupport;
  * https://gist.github.com/johanandren/41b096c9ee647863c6c04959be548b25
  *
  */
-public final class PersistentEventSource extends GraphStage<SourceShape<List<PersistentEvent>>> {
+public final class PersistentEventSource extends GraphStage<SourceShape<List<PersistentEventWithOffset>>> {
 
     private final JdbcEventsDao eventsDao;
     private final long fromSequenceNumber;
-    private final Outlet<List<PersistentEvent>> out = Outlet.create("PersistentEventSource.out");
-    private final SourceShape<List<PersistentEvent>> shape = SourceShape.of(out);
+    private final Outlet<List<PersistentEventWithOffset>> out = Outlet.create("PersistentEventSource.out");
+    private final SourceShape<List<PersistentEventWithOffset>> shape = SourceShape.of(out);
     private final FiniteDuration pollingInterval;
     private final String persistenceId;
 
-    public PersistentEventSource(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
+    private PersistentEventSource(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
         this.eventsDao = eventsDao;
         this.fromSequenceNumber = fromSequenceNumber <= 0 ? 1 : fromSequenceNumber;
         this.pollingInterval = pollingInterval;
@@ -38,7 +37,7 @@ public final class PersistentEventSource extends GraphStage<SourceShape<List<Per
     }
 
     @Override
-    public SourceShape<List<PersistentEvent>> shape() {
+    public SourceShape<List<PersistentEventWithOffset>> shape() {
         return shape;
     }
 
@@ -70,8 +69,8 @@ public final class PersistentEventSource extends GraphStage<SourceShape<List<Per
             private void doPull() {
 
                 try {
-                    Iterable<PersistentEvent> persistentEvents = eventsDao.read(persistenceId, position, Long.MAX_VALUE, Long.MAX_VALUE);
-                    List<PersistentEvent> events = StreamSupport.stream(persistentEvents.spliterator(), false).collect(Collectors.toList());
+                    Iterable<PersistentEventWithOffset> persistentEventsWithOffset = eventsDao.readByStream(persistenceId, position, Long.MAX_VALUE, Long.MAX_VALUE);
+                    List<PersistentEventWithOffset> events = StreamSupport.stream(persistentEventsWithOffset.spliterator(), false).collect(Collectors.toList());
 
                     if(events.size() > 0) {
                         position += events.size();
@@ -94,7 +93,11 @@ public final class PersistentEventSource extends GraphStage<SourceShape<List<Per
     }
 
     // factory methods
-    public static Source<List<PersistentEvent>, NotUsed> create(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
+    public static Source<List<PersistentEventWithOffset>, NotUsed> create(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
+        return Source.fromGraph(new PersistentEventSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
+    }
+
+    public static Source<List<PersistentEventWithOffset>, NotUsed> byTag(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
         return Source.fromGraph(new PersistentEventSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
     }
 }

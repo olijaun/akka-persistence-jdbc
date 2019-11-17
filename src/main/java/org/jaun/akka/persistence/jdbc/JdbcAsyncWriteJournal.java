@@ -35,8 +35,8 @@ public class JdbcAsyncWriteJournal extends AsyncWriteJournal {
     public Future<Void> doAsyncReplayMessages(String persistenceId, long fromSequenceNr, long toSequenceNr,
                                               long max, Consumer<PersistentRepr> replayCallback) {
 
-        Iterable<PersistentEvent> events = jdbcEventsDao.read(persistenceId, fromSequenceNr, toSequenceNr, max);
-        events.forEach(event -> replayCallback.accept(Converter.toPersistentRepr(serialization, event)));
+        Iterable<PersistentEventWithOffset> events = jdbcEventsDao.readByStream(persistenceId, fromSequenceNr, toSequenceNr, max);
+        events.forEach(event -> replayCallback.accept(Converter.toPersistentRepr(serialization, event.getEvent())));
 
         return Future.successful(null);
     }

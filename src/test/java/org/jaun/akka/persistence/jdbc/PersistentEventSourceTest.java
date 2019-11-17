@@ -15,6 +15,7 @@ import scala.concurrent.duration.FiniteDuration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
@@ -32,24 +33,20 @@ class PersistentEventSourceTest {
     void create() {
 
         JdbcEventsDao dao = new JdbcEventsDao();
-        PersistentEvent event1 = PersistentEventFixture.persistentEvent("test").sequenceNumber(1L).build();
-        PersistentEvent event2 = PersistentEventFixture.persistentEvent("test").sequenceNumber(2L).build();
-        dao.write(asList(event1, event2));
+        PersistentEventWithOffset event1 = new PersistentEventWithOffset(PersistentEventFixture.persistentEvent("test").sequenceNumber(1L).build(), 1L);
+        PersistentEventWithOffset event2 = new PersistentEventWithOffset(PersistentEventFixture.persistentEvent("test").sequenceNumber(2L).build(), 2L);
+        dao.write(asList(event1.getEvent(), event2.getEvent()));
 
-        Source<List<PersistentEvent>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
 
-        ArrayList<PersistentEvent> readEvents = new ArrayList<>();
-
-        source.runWith(Sink.foreach(p -> readEvents.addAll(p)), actorTestKit.system()).toCompletableFuture();
-
-        Sink<List<PersistentEvent>, TestSubscriber.Probe<List<PersistentEvent>>> testSink = TestSink.probe(Adapter.toClassic(actorTestKit.system()));
-        TestSubscriber.Probe<List<PersistentEvent>> testProbe = source.runWith(testSink, actorTestKit.system());
+        Sink<List<PersistentEventWithOffset>, TestSubscriber.Probe<List<PersistentEventWithOffset>>> testSink = TestSink.probe(Adapter.toClassic(actorTestKit.system()));
+        TestSubscriber.Probe<List<PersistentEventWithOffset>> testProbe = source.runWith(testSink, actorTestKit.system());
 
         assertThat(testProbe.requestNext()).containsExactly(event1, event2);
 
-        PersistentEvent event3 = PersistentEventFixture.persistentEvent("test").sequenceNumber(3L).build();
-        PersistentEvent event4 = PersistentEventFixture.persistentEvent("test").sequenceNumber(4L).build();
-        dao.write(asList(event3, event4));
+        PersistentEventWithOffset event3 = new PersistentEventWithOffset(PersistentEventFixture.persistentEvent("test").sequenceNumber(3L).build(), 3L);
+        PersistentEventWithOffset event4 = new PersistentEventWithOffset(PersistentEventFixture.persistentEvent("test").sequenceNumber(4L).build(), 4L);
+        dao.write(asList(event3.getEvent(), event4.getEvent()));
 
         assertThat(testProbe.requestNext()).containsExactly(event3, event4);
 
