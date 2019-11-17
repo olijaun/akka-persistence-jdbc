@@ -10,7 +10,6 @@ import akka.serialization.SerializationExtension;
 import akka.stream.javadsl.Source;
 import com.typesafe.config.Config;
 import scala.concurrent.duration.FiniteDuration;
-import scala.util.Try;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -51,22 +50,9 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     private EventEnvelope toEventEnvelope(PersistentEvent persistentEvent) {
 
-        Object deserializedEvent;
-        try {
-            Class<?> aClass = Class.forName(persistentEvent.getEventType());
+        Object payloadEvent = Converter.toPayload(serialization, persistentEvent);
 
-            Try<?> deserialize = serialization.deserialize(persistentEvent.getSerializedEvent(), aClass);
-
-            if (deserialize.isFailure()) {
-                throw new IllegalStateException(deserialize.failed().get());
-            }
-
-            deserializedEvent = deserialize.get();
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException(e);
-        }
-
-        return new EventEnvelope(Offset.sequence(persistentEvent.getSequenceNumber()), persistentEvent.getStream(), persistentEvent.getSequenceNumber(), deserializedEvent);
+        return new EventEnvelope(Offset.sequence(persistentEvent.getSequenceNumber()), persistentEvent.getStream(), persistentEvent.getSequenceNumber(), payloadEvent);
     }
 
     @Override

@@ -16,7 +16,7 @@ public class Query {
         this.dataSource = Objects.requireNonNull(dataSource);
     }
 
-    <T> Iterable<T> run(StatementExecutor statementExecutor, RowMapper<T> mapper) {
+    public <T> Iterable<T> run(StatementExecutor statementExecutor, RowMapper<T> mapper) {
         return () -> new ResultSetIterator<>(statementExecutor, mapper);
     }
 
