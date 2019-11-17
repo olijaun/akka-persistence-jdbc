@@ -39,7 +39,7 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
     @Override
     public Source<EventEnvelope, NotUsed> eventsByPersistenceId(String persistenceId, long fromSequenceNr, long toSequenceNr) {
 
-        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventByStreamSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
         return source.flatMapConcat(persistentEventList -> Source.from(persistentEventList)).map(this::toEventEnvelope);
     }
 

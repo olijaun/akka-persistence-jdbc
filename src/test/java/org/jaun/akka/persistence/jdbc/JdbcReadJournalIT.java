@@ -8,6 +8,7 @@ import akka.persistence.query.PersistenceQuery;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import com.typesafe.config.ConfigFactory;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +31,11 @@ class JdbcReadJournalIT {
         TestDb.setup();
 
         dao = new JdbcEventsDao();
+    }
+
+    @AfterAll
+    private static void afterAll() throws Exception {
+        TestDb.printTables();
     }
 
     @Test

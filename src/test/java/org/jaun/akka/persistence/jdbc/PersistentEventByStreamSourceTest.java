@@ -12,15 +12,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import scala.concurrent.duration.FiniteDuration;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 
-class PersistentEventSourceTest {
+class PersistentEventByStreamSourceTest {
 
     private static ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
 
@@ -37,7 +35,7 @@ class PersistentEventSourceTest {
         PersistentEventWithOffset event2 = new PersistentEventWithOffset(PersistentEventFixture.persistentEvent("test").sequenceNumber(2L).build(), 2L);
         dao.write(asList(event1.getEvent(), event2.getEvent()));
 
-        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        Source<List<PersistentEventWithOffset>, NotUsed> source = PersistentEventByStreamSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
 
         Sink<List<PersistentEventWithOffset>, TestSubscriber.Probe<List<PersistentEventWithOffset>>> testSink = TestSink.probe(Adapter.toClassic(actorTestKit.system()));
         TestSubscriber.Probe<List<PersistentEventWithOffset>> testProbe = source.runWith(testSink, actorTestKit.system());

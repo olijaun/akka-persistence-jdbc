@@ -119,7 +119,7 @@ public class JdbcEventsDao {
 
         StatementExecutor excutor = conn -> {
             PreparedStatement stmt = conn.prepareStatement(EVENTS_BY_TAG);
-            stmt.setString(1, tag);
+            stmt.setString(1, "%" + tag + "%");
             stmt.setLong(2, fromOffset);
             return stmt.executeQuery();
         };

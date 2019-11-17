@@ -20,16 +20,16 @@ import java.util.stream.StreamSupport;
  * https://gist.github.com/johanandren/41b096c9ee647863c6c04959be548b25
  *
  */
-public final class PersistentEventSource extends GraphStage<SourceShape<List<PersistentEventWithOffset>>> {
+public final class PersistentEventByStreamSource extends GraphStage<SourceShape<List<PersistentEventWithOffset>>> {
 
     private final JdbcEventsDao eventsDao;
     private final long fromSequenceNumber;
-    private final Outlet<List<PersistentEventWithOffset>> out = Outlet.create("PersistentEventSource.out");
+    private final Outlet<List<PersistentEventWithOffset>> out = Outlet.create("PersistentEventByStreamSource.out");
     private final SourceShape<List<PersistentEventWithOffset>> shape = SourceShape.of(out);
     private final FiniteDuration pollingInterval;
     private final String persistenceId;
 
-    private PersistentEventSource(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
+    private PersistentEventByStreamSource(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
         this.eventsDao = eventsDao;
         this.fromSequenceNumber = fromSequenceNumber <= 0 ? 1 : fromSequenceNumber;
         this.pollingInterval = pollingInterval;
@@ -94,10 +94,6 @@ public final class PersistentEventSource extends GraphStage<SourceShape<List<Per
 
     // factory methods
     public static Source<List<PersistentEventWithOffset>, NotUsed> create(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
-        return Source.fromGraph(new PersistentEventSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
-    }
-
-    public static Source<List<PersistentEventWithOffset>, NotUsed> byTag(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
-        return Source.fromGraph(new PersistentEventSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
+        return Source.fromGraph(new PersistentEventByStreamSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
     }
 }
