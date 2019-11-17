@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 
-class EventsDaoSourceTest {
+class PersistentEventSourceTest {
 
     private static ActorTestKit actorTestKit = ActorTestKit.create("test", ConfigFactory.defaultApplication());
 
@@ -36,7 +36,7 @@ class EventsDaoSourceTest {
         PersistentEvent event2 = PersistentEventFixture.persistentEvent("test").sequenceNumber(2L).build();
         dao.write(asList(event1, event2));
 
-        Source<List<PersistentEvent>, NotUsed> source = EventsDaoSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        Source<List<PersistentEvent>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
 
         ArrayList<PersistentEvent> readEvents = new ArrayList<>();
 

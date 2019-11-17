@@ -12,6 +12,7 @@ import com.typesafe.config.Config;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 // https://blog.jooq.org/tag/slick/
@@ -38,8 +39,8 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
     @Override
     public Source<EventEnvelope, NotUsed> eventsByPersistenceId(String persistenceId, long fromSequenceNr, long toSequenceNr) {
 
-        Source<List<PersistentEvent>, NotUsed> source = EventsDaoSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
-        return source.flatMapConcat(peristenEventList -> Source.from(peristenEventList)).map(this::toEventEnvelope);
+        Source<List<PersistentEvent>, NotUsed> source = PersistentEventSource.create(new JdbcEventsDao(), "test", 0, FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+        return source.flatMapConcat(persistentEventList -> Source.from(persistentEventList)).map(this::toEventEnvelope);
     }
 
     @Override
@@ -62,7 +63,7 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     @Override
     public Source<String, NotUsed> currentPersistenceIds() {
-        return null;
+        return Source.from(eventsDao.persistenceIds());
     }
 
     @Override
@@ -72,7 +73,10 @@ public class JdbcReadJournal implements ReadJournal, PersistenceIdsQuery, Curren
 
     @Override
     public Source<String, NotUsed> persistenceIds() {
-        return null;
+        Source<Set<String>, NotUsed> source = PersistenceIdSource.create(new JdbcEventsDao(),
+                FiniteDuration.create(2000, TimeUnit.MILLISECONDS));
+
+        return source.flatMapConcat(persistenceSet -> Source.from(persistenceSet));
     }
 
     public long refreshInterval() {

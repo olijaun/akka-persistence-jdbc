@@ -18,6 +18,7 @@ public class JdbcEventsDao {
     private static final String INSERT_EVENT = "insert into event(stream, seq_number, event_type, tags, metadata, event_data, deleted) values(?, ?, ?, ?, ?, ?, ?)";
     private static final String MAX_SEQ_NR = "select max(seq_number) from event where stream = ?";
     private static final String EVENTS_BY_STREAM = "select stream, seq_number, event_type, tags, metadata, event_data, deleted from event where stream = ? AND seq_number >= ? and seq_number <= ?";
+    private static final String PERSISTENCE_IDS = "select distinct stream from event order by stream";
 
     private BasicDataSource dataSource;
     private Gson gson = new Gson();
@@ -111,7 +112,6 @@ public class JdbcEventsDao {
         return new Query(dataSource).run(excutor, rowMapper);
     }
 
-
     public long readHighestSequenceNr(String persistenceId) {
 
         try (Connection conn = dataSource.getConnection(); PreparedStatement stmt = conn.prepareStatement(MAX_SEQ_NR)) {
@@ -124,5 +124,19 @@ public class JdbcEventsDao {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Iterable<String> persistenceIds() {
+
+        StatementExecutor excutor = conn -> {
+            PreparedStatement stmt = conn.prepareStatement(PERSISTENCE_IDS);
+            return stmt.executeQuery();
+        };
+
+        RowMapper<String> rowMapper = (resultSet, rowNum) -> {
+            return resultSet.getString("stream"); // TODO: change to byte
+        };
+
+        return new Query(dataSource).run(excutor, rowMapper);
     }
 }

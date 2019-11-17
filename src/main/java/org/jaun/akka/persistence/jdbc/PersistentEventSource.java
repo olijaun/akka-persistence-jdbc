@@ -21,16 +21,16 @@ import java.util.stream.StreamSupport;
  * https://gist.github.com/johanandren/41b096c9ee647863c6c04959be548b25
  *
  */
-public final class EventsDaoSource extends GraphStage<SourceShape<List<PersistentEvent>>> {
+public final class PersistentEventSource extends GraphStage<SourceShape<List<PersistentEvent>>> {
 
     private final JdbcEventsDao eventsDao;
     private final long fromSequenceNumber;
-    private final Outlet<List<PersistentEvent>> out = Outlet.create("EventsDaoSource.out");
+    private final Outlet<List<PersistentEvent>> out = Outlet.create("PersistentEventSource.out");
     private final SourceShape<List<PersistentEvent>> shape = SourceShape.of(out);
     private final FiniteDuration pollingInterval;
     private final String persistenceId;
 
-    public EventsDaoSource(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
+    public PersistentEventSource(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
         this.eventsDao = eventsDao;
         this.fromSequenceNumber = fromSequenceNumber <= 0 ? 1 : fromSequenceNumber;
         this.pollingInterval = pollingInterval;
@@ -48,7 +48,6 @@ public final class EventsDaoSource extends GraphStage<SourceShape<List<Persisten
         return new TimerGraphStageLogic(shape) {
 
             private long position = fromSequenceNumber;
-            private AsyncCallback<Try<Integer>> chunkCallback;
 
             {
                 setHandler(out, new AbstractOutHandler() {
@@ -96,6 +95,6 @@ public final class EventsDaoSource extends GraphStage<SourceShape<List<Persisten
 
     // factory methods
     public static Source<List<PersistentEvent>, NotUsed> create(JdbcEventsDao eventsDao, String persistenceId, long fromSequenceNumber, FiniteDuration pollingInterval) {
-        return Source.fromGraph(new EventsDaoSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
+        return Source.fromGraph(new PersistentEventSource(eventsDao, persistenceId, fromSequenceNumber, pollingInterval));
     }
 }

@@ -60,4 +60,32 @@ class JdbcReadJournalIT {
         assertThat(testEvent.getValue()).isEqualTo("do write test");
     }
 
+    @Test
+    void persistenceIds() throws ExecutionException, InterruptedException {
+
+        // prepare
+        String stream = UUID.randomUUID().toString();
+
+        PersistentEvent event = PersistentEventFixture.persistentEvent(stream).build();
+
+        dao.write(Collections.singletonList(event));
+
+        JdbcReadJournal readJournal = PersistenceQuery.get(Adapter.toClassic(actorTestKit.system())).getReadJournalFor(JdbcReadJournal.class,
+                JdbcReadJournal.Identifier());
+
+        // run
+        Source<EventEnvelope, NotUsed> source = readJournal.currentEventsByPersistenceId(stream, 0, Long.MAX_VALUE);
+
+        // verify
+        List<EventEnvelope> eventEnvelopes = source.map(i -> i).runWith(Sink.seq(), actorTestKit.system()).toCompletableFuture().get();
+
+        assertThat(eventEnvelopes).hasSize(1);
+        assertThat(eventEnvelopes.get(0).persistenceId()).isEqualTo(stream);
+        assertThat(eventEnvelopes.get(0).sequenceNr()).isEqualTo(1);
+
+        MyPersistentBehavior.TestEvent testEvent = (MyPersistentBehavior.TestEvent) eventEnvelopes.get(0).event();
+
+        assertThat(testEvent.getValue()).isEqualTo("do write test");
+    }
+
 }

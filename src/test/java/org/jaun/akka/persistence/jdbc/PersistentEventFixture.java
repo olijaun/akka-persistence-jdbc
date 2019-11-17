@@ -14,7 +14,7 @@ public class PersistentEventFixture {
         return PersistentEvent.builder()
                 .stream(stream)
                 .serializedEvent("{\"value\":\"do write test\"}".getBytes(StandardCharsets.UTF_8))
-                .eventType("org.jaun.akka.persistence.jdbc.MyPersistentBehavior$TestEvent")
+                .eventType(MyPersistentBehavior.TestEvent.class.getName())
                 .metadata(metadata)
                 .sequenceNumber(1L)
                 .tags(Collections.emptySet())
